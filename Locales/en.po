@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: SpeciesTracker 0.1.0\n"
+"Project-Id-Version: SpeciesTracker 0.1.1\n"
 "Language: en\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -10,38 +10,38 @@ msgstr ""
 msgid "Track animals and plants: see every instance of a tracked species as a personal map marker on the M-key map and minimap within a configurable range."
 msgstr "Track animals and plants: see every instance of a tracked species as a personal map marker on the M-key map and minimap within a configurable range."
 
-# /track help
-msgid "/track help - this help"
-msgstr "/track help - this help"
+# /trackspecies help
+msgid "/trackspecies help - this help"
+msgstr "/trackspecies help - this help"
 
-msgid "/track species - list every trackable species (animals and plants)"
-msgstr "/track species - list every trackable species (animals and plants)"
+msgid "/trackspecies species - list every trackable species (animals and plants)"
+msgstr "/trackspecies species - list every trackable species (animals and plants)"
 
-msgid "/track add <species> - start tracking a species"
-msgstr "/track add <species> - start tracking a species"
+msgid "/trackspecies add <species> - start tracking a species"
+msgstr "/trackspecies add <species> - start tracking a species"
 
-msgid "/track remove <species> - stop tracking a species"
-msgstr "/track remove <species> - stop tracking a species"
+msgid "/trackspecies remove <species> - stop tracking a species"
+msgstr "/trackspecies remove <species> - stop tracking a species"
 
-msgid "/track range <species> <meters> - set the detection range for a species (1-500, default 50)"
-msgstr "/track range <species> <meters> - set the detection range for a species (1-500, default 50)"
+msgid "/trackspecies range <species> <meters> - set the detection range for a species (1-500, default 50)"
+msgstr "/trackspecies range <species> <meters> - set the detection range for a species (1-500, default 50)"
 
-msgid "/track list - show your tracked species and their ranges"
-msgstr "/track list - show your tracked species and their ranges"
+msgid "/trackspecies list - show your tracked species and their ranges"
+msgstr "/trackspecies list - show your tracked species and their ranges"
 
-msgid "/track clear - stop tracking every species"
-msgstr "/track clear - stop tracking every species"
+msgid "/trackspecies clear - stop tracking every species"
+msgstr "/trackspecies clear - stop tracking every species"
 
-# /track species
+# /trackspecies species
 msgid "No species are available in the simulation database."
 msgstr "No species are available in the simulation database."
 
 msgid "Trackable species:"
 msgstr "Trackable species:"
 
-# /track add
-msgid "No species matching '{0}' was found. Run /track species to see what is available."
-msgstr "No species matching '{0}' was found. Run /track species to see what is available."
+# /trackspecies add
+msgid "No species matching '{0}' was found. Run /trackspecies species to see what is available."
+msgstr "No species matching '{0}' was found. Run /trackspecies species to see what is available."
 
 msgid "Now tracking {0}."
 msgstr "Now tracking {0}."
@@ -49,19 +49,19 @@ msgstr "Now tracking {0}."
 msgid "You are already tracking {0}."
 msgstr "You are already tracking {0}."
 
-# /track remove
+# /trackspecies remove
 msgid "Stopped tracking {0}."
 msgstr "Stopped tracking {0}."
 
-msgid "'{0}' is not in your tracked list. Run /track list to see what you track."
-msgstr "'{0}' is not in your tracked list. Run /track list to see what you track."
+msgid "'{0}' is not in your tracked list. Run /trackspecies list to see what you track."
+msgstr "'{0}' is not in your tracked list. Run /trackspecies list to see what you track."
 
-# /track range
+# /trackspecies range
 msgid "Range must be between {0} and {1} meters."
 msgstr "Range must be between {0} and {1} meters."
 
-msgid "'{0}' is not in your tracked list. Add it first with /track add <species>."
-msgstr "'{0}' is not in your tracked list. Add it first with /track add <species>."
+msgid "'{0}' is not in your tracked list. Add it first with /trackspecies add <species>."
+msgstr "'{0}' is not in your tracked list. Add it first with /trackspecies add <species>."
 
 msgid "Detection range for {0} set to {1} m."
 msgstr "Detection range for {0} set to {1} m."
@@ -69,13 +69,13 @@ msgstr "Detection range for {0} set to {1} m."
 msgid "Could not update the range. Please provide a valid species name."
 msgstr "Could not update the range. Please provide a valid species name."
 
-# /track list
-msgid "You are not tracking any species. Add one with /track add <species>."
-msgstr "You are not tracking any species. Add one with /track add <species>."
+# /trackspecies list
+msgid "You are not tracking any species. Add one with /trackspecies add <species>."
+msgstr "You are not tracking any species. Add one with /trackspecies add <species>."
 
 msgid "Tracked species:"
 msgstr "Tracked species:"
 
-# /track clear
+# /trackspecies clear
 msgid "Tracking list cleared."
 msgstr "Tracking list cleared."

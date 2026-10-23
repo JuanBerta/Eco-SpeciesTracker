@@ -18,24 +18,24 @@ namespace SpeciesTracker
     [ChatCommandHandler]
     public static class TrackerCommands
     {
-        [ChatCommand("Track animals and plants: see every instance of a tracked species as a personal map marker on the M-key map and minimap within a configurable range.", "track")]
-        public static void Track() { }
+        [ChatCommand("Track animals and plants: see every instance of a tracked species as a personal map marker on the M-key map and minimap within a configurable range.", "trackspecies")]
+        public static void TrackSpecies() { }
 
-        [ChatSubCommand(nameof(Track), "help", ChatAuthorizationLevel.User)]
+        [ChatSubCommand(nameof(TrackSpecies), "help", ChatAuthorizationLevel.User)]
         public static void Help(User user)
         {
             var sb = new StringBuilder();
-            sb.AppendLine(Localizer.DoStr("/track help - this help"));
-            sb.AppendLine(Localizer.DoStr("/track species - list every trackable species (animals and plants)"));
-            sb.AppendLine(Localizer.DoStr("/track add <species> - start tracking a species"));
-            sb.AppendLine(Localizer.DoStr("/track remove <species> - stop tracking a species"));
-            sb.AppendLine(Localizer.DoStr("/track range <species> <meters> - set the detection range for a species (1-500, default 50)"));
-            sb.AppendLine(Localizer.DoStr("/track list - show your tracked species and their ranges"));
-            sb.AppendLine(Localizer.DoStr("/track clear - stop tracking every species"));
+            sb.AppendLine(Localizer.DoStr("/trackspecies help - this help"));
+            sb.AppendLine(Localizer.DoStr("/trackspecies species - list every trackable species (animals and plants)"));
+            sb.AppendLine(Localizer.DoStr("/trackspecies add <species> - start tracking a species"));
+            sb.AppendLine(Localizer.DoStr("/trackspecies remove <species> - stop tracking a species"));
+            sb.AppendLine(Localizer.DoStr("/trackspecies range <species> <meters> - set the detection range for a species (1-500, default 50)"));
+            sb.AppendLine(Localizer.DoStr("/trackspecies list - show your tracked species and their ranges"));
+            sb.AppendLine(Localizer.DoStr("/trackspecies clear - stop tracking every species"));
             user.Player.MsgLoc($"{sb.ToStringLoc()}", NotificationStyle.Chat);
         }
 
-        [ChatSubCommand(nameof(Track), "species", ChatAuthorizationLevel.User)]
+        [ChatSubCommand(nameof(TrackSpecies), "species", ChatAuthorizationLevel.User)]
         public static void Species(User user)
         {
             var all = EcoSim.AllSpecies
@@ -58,13 +58,13 @@ namespace SpeciesTracker
             user.Player.MsgLoc($"{sb.ToStringLoc()}", NotificationStyle.Chat);
         }
 
-        [ChatSubCommand(nameof(Track), "add", ChatAuthorizationLevel.User)]
+        [ChatSubCommand(nameof(TrackSpecies), "add", ChatAuthorizationLevel.User)]
         public static void Add(User user, string speciesName)
         {
             var species = FindSpecies(speciesName);
             if (species == null)
             {
-                user.Player.ErrorLoc($"No species matching '{speciesName}' was found. Run /track species to see what is available.");
+                user.Player.ErrorLoc($"No species matching '{speciesName}' was found. Run /trackspecies species to see what is available.");
                 return;
             }
 
@@ -74,16 +74,16 @@ namespace SpeciesTracker
                 user.Player.ErrorLoc($"You are already tracking {species.Name}.");
         }
 
-        [ChatSubCommand(nameof(Track), "remove", ChatAuthorizationLevel.User)]
+        [ChatSubCommand(nameof(TrackSpecies), "remove", ChatAuthorizationLevel.User)]
         public static void Remove(User user, string speciesName)
         {
             if (SpeciesTrackerManager.RemoveTracking(user, speciesName))
                 user.Player.MsgLoc($"Stopped tracking {speciesName.Trim()}.", NotificationStyle.Chat);
             else
-                user.Player.ErrorLoc($"'{speciesName}' is not in your tracked list. Run /track list to see what you track.");
+                user.Player.ErrorLoc($"'{speciesName}' is not in your tracked list. Run /trackspecies list to see what you track.");
         }
 
-        [ChatSubCommand(nameof(Track), "range", ChatAuthorizationLevel.User)]
+        [ChatSubCommand(nameof(TrackSpecies), "range", ChatAuthorizationLevel.User)]
         public static void Range(User user, string speciesName, float meters)
         {
             if (meters < SpeciesTrackerManager.MinRange || meters > SpeciesTrackerManager.MaxRange)
@@ -94,7 +94,7 @@ namespace SpeciesTracker
 
             if (!SpeciesTrackerManager.IsTracking(user, speciesName))
             {
-                user.Player.ErrorLoc($"'{speciesName}' is not in your tracked list. Add it first with /track add <species>.");
+                user.Player.ErrorLoc($"'{speciesName}' is not in your tracked list. Add it first with /trackspecies add <species>.");
                 return;
             }
 
@@ -104,13 +104,13 @@ namespace SpeciesTracker
                 user.Player.ErrorLoc($"Could not update the range. Please provide a valid species name.");
         }
 
-        [ChatSubCommand(nameof(Track), "list", ChatAuthorizationLevel.User)]
+        [ChatSubCommand(nameof(TrackSpecies), "list", ChatAuthorizationLevel.User)]
         public static void List(User user)
         {
             var names = SpeciesTrackerManager.GetTrackedSpeciesNames(user);
             if (names.Count == 0)
             {
-                user.Player.ErrorLoc($"You are not tracking any species. Add one with /track add <species>.");
+                user.Player.ErrorLoc($"You are not tracking any species. Add one with /trackspecies add <species>.");
                 return;
             }
 
@@ -123,7 +123,7 @@ namespace SpeciesTracker
             user.Player.MsgLoc($"{sb.ToStringLoc()}", NotificationStyle.Chat);
         }
 
-        [ChatSubCommand(nameof(Track), "clear", ChatAuthorizationLevel.User)]
+        [ChatSubCommand(nameof(TrackSpecies), "clear", ChatAuthorizationLevel.User)]
         public static void Clear(User user)
         {
             SpeciesTrackerManager.Clear(user);

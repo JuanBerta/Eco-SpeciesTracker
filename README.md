@@ -5,7 +5,7 @@ Track **animals and plants** in Eco. Every instance of a tracked species inside 
 - **Author:** Beinded (JuanBerta)
 - **GitHub:** https://github.com/JuanBerta/SpeciesTracker
 - **Game version:** Eco 0.14.2.1
-- **Mod version:** 0.1.0
+- **Mod version:** 0.1.1
 
 ## Features
 
@@ -19,23 +19,23 @@ Track **animals and plants** in Eco. Every instance of a tracked species inside 
 
 | Command | Description |
 |---|---|
-| `/track help` | Show this help |
-| `/track species` | List every trackable species (animals and plants) |
-| `/track add <species>` | Start tracking a species |
-| `/track remove <species>` | Stop tracking a species |
-| `/track range <species> <meters>` | Set detection range for a species (1-500, default 50) |
-| `/track list` | Show your tracked species and their ranges |
-| `/track clear` | Stop tracking every species |
+| `/trackspecies help` | Show this help |
+| `/trackspecies species` | List every trackable species (animals and plants) |
+| `/trackspecies add <species>` | Start tracking a species |
+| `/trackspecies remove <species>` | Stop tracking a species |
+| `/trackspecies range <species> <meters>` | Set detection range for a species (1-500, default 50) |
+| `/trackspecies list` | Show your tracked species and their ranges |
+| `/trackspecies clear` | Stop tracking every species |
 
 Examples:
 
 ```
-/track species
-/track add Bison
-/track add Pine
-/track range Bison 120
-/track list
-/track remove Bison
+/trackspecies species
+/trackspecies add Bison
+/trackspecies add Pine
+/trackspecies range Bison 120
+/trackspecies list
+/trackspecies remove Bison
 ```
 
 ## Installation
