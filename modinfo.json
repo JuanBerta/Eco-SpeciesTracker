@@ -1,0 +1,8 @@
+{
+  "name": "Species Tracker",
+  "version": "0.1.0",
+  "ecoVersion": "0.14.2.1",
+  "author": "Beinded (JuanBerta)",
+  "website": "https://github.com/JuanBerta/SpeciesTracker",
+  "description": "Tracks animals and plants: every instance of a tracked species inside your detection range shows a temporary personal marker on the M-key map and the minimap."
+}
