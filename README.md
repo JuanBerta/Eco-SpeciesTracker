@@ -1,21 +1,22 @@
 # Species Tracker (Eco Mod)
 
-Track **animals and plants** in Eco. Every instance of a tracked species inside your detection range shows a **temporary personal marker** on the M-key world map and the minimap. Markers follow moving animals, refresh every 0.5 s, and disappear when the entity dies, leaves the range, or tracking is stopped.
+Track **animals and plants** in Eco. Every instance of a tracked species inside your **global detection range** shows a **temporary personal marker** on the M-key world map and the minimap. Markers follow moving animals, refresh every 0.5 s, and disappear when the entity dies, leaves the range, or tracking is stopped.
 
 - **Author:** Beinded (JuanBerta)
 - **GitHub:** https://github.com/JuanBerta/SpeciesTracker
 - **Game version:** Eco 0.14.2.1
-- **Mod version:** 0.1.2
+- **Mod version:** 0.1.3
 
 ## Changelog
 
+- **0.1.3** — Detection range is now user-global: one per-player range applies to every tracked species at once (`/trackspecies range <meters>`), replacing the old per-species ranges. Saves from 0.1.2 (per-species ranges) are superseded by the new global range (default 50 m).
 - **0.1.2** — Fix map markers never rendering: `IThreadedPlugin.Run()` is invoked exactly once on a dedicated background thread by PluginManager, so the plugin now keeps the marker refresh loop alive for the whole server lifetime (previously the refresh pass only ran once at startup, before any species was tracked, and no WorldMarker was ever created).
 - **0.1.1** — Rename the chat command from `/track` to `/trackspecies` to avoid a server startup conflict with another mod's command.
 
 ## Features
 
 - Track land animals, aquatic animals, **and plants/trees** (any species in the simulation database).
-- Per-species, per-player detection range (1 - 500 m, default 50 m).
+- One global per-player detection range (1 - 500 m, default 50 m) applied to every tracked species.
 - Personal world map + minimap markers (neon green), refreshed at 0.5 s.
 - Markers are cleaned up when the entity dies / is removed, leaves range, or tracking stops.
 - Per-player configuration persisted across restarts.
@@ -28,8 +29,8 @@ Track **animals and plants** in Eco. Every instance of a tracked species inside 
 | `/trackspecies species` | List every trackable species (animals and plants) |
 | `/trackspecies add <species>` | Start tracking a species |
 | `/trackspecies remove <species>` | Stop tracking a species |
-| `/trackspecies range <species> <meters>` | Set detection range for a species (1-500, default 50) |
-| `/trackspecies list` | Show your tracked species and their ranges |
+| `/trackspecies range <meters>` | Set your global detection range for every tracked species (1-500, default 50) |
+| `/trackspecies list` | Show your tracked species and your global detection range |
 | `/trackspecies clear` | Stop tracking every species |
 
 Examples:
@@ -38,7 +39,7 @@ Examples:
 /trackspecies species
 /trackspecies add Bison
 /trackspecies add Pine
-/trackspecies range Bison 120
+/trackspecies range 120
 /trackspecies list
 /trackspecies remove Bison
 ```

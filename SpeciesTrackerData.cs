@@ -22,7 +22,8 @@ namespace SpeciesTracker
     {
         [Serialized] public ThreadSafeList<string> TrackedSpecies { get; set; } = new();
 
-        // Key: exact species name as stored in TrackedSpecies. Value: custom detection range in meters.
-        [Serialized] public ThreadSafeDictionary<string, float> CustomRanges { get; set; } = new();
+        // Single user-level detection range in meters applied to every tracked species.
+        // null means "use the default range" (SpeciesTrackerManager.DefaultRange).
+        [Serialized] public float? CustomRange { get; set; }
     }
 }

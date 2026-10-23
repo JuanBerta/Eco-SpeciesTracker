@@ -71,7 +71,7 @@ namespace SpeciesTracker
                     if (!wanted.Contains(animal.Species.Name))
                         continue;
 
-                    var range = SpeciesTrackerManager.GetRange(user, animal.Species.Name);
+                    var range = SpeciesTrackerManager.GetRange(user);
                     if (World.WrappedDistance(animal.Position, playerPos) > range)
                         continue;
 
@@ -89,7 +89,7 @@ namespace SpeciesTracker
                     if (!wanted.Contains(plant.Species.Name))
                         continue;
 
-                    var range = SpeciesTrackerManager.GetRange(user, plant.Species.Name);
+                    var range = SpeciesTrackerManager.GetRange(user);
                     if (World.WrappedDistance(plant.Position, playerPos) > range)
                         continue;
 

@@ -58,25 +58,18 @@ namespace SpeciesTracker
             return config.TrackedSpecies.Any(n => string.Equals(n, speciesName.Trim(), StringComparison.OrdinalIgnoreCase));
         }
 
-        public static bool SetRange(User user, Species species, float range) =>
-            SetRange(user, species?.Name ?? string.Empty, range);
-
-        public static bool SetRange(User user, string speciesName, float range)
+        public static bool SetRange(User user, float range)
         {
-            if (string.IsNullOrWhiteSpace(speciesName)) return false;
             if (range < MinRange || range > MaxRange) return false;
             var config = GetConfig(user);
-            config.CustomRanges[speciesName.Trim()] = range;
+            config.CustomRange = range;
             return true;
         }
 
-        public static float GetRange(User user, Species species) => GetRange(user, species?.Name ?? string.Empty);
-
-        public static float GetRange(User user, string speciesName)
+        public static float GetRange(User user)
         {
-            if (string.IsNullOrWhiteSpace(speciesName)) return DefaultRange;
             var config = GetConfig(user);
-            if (config.CustomRanges.TryGetValue(speciesName.Trim(), out var range))
+            if (config.CustomRange is float range)
                 return Math.Clamp(range, MinRange, MaxRange);
             return DefaultRange;
         }

@@ -29,8 +29,8 @@ namespace SpeciesTracker
             sb.AppendLine(Localizer.DoStr("/trackspecies species - list every trackable species (animals and plants)"));
             sb.AppendLine(Localizer.DoStr("/trackspecies add <species> - start tracking a species"));
             sb.AppendLine(Localizer.DoStr("/trackspecies remove <species> - stop tracking a species"));
-            sb.AppendLine(Localizer.DoStr("/trackspecies range <species> <meters> - set the detection range for a species (1-500, default 50)"));
-            sb.AppendLine(Localizer.DoStr("/trackspecies list - show your tracked species and their ranges"));
+            sb.AppendLine(Localizer.DoStr("/trackspecies range <meters> - set your global detection range for every tracked species (1-500, default 50)"));
+            sb.AppendLine(Localizer.DoStr("/trackspecies list - show your tracked species and your global detection range"));
             sb.AppendLine(Localizer.DoStr("/trackspecies clear - stop tracking every species"));
             user.Player.MsgLoc($"{sb.ToStringLoc()}", NotificationStyle.Chat);
         }
@@ -69,7 +69,7 @@ namespace SpeciesTracker
             }
 
             if (SpeciesTrackerManager.AddTracking(user, species))
-                user.Player.MsgLoc($"Now tracking {species.Name}.", NotificationStyle.Chat);
+                user.Player.MsgLoc($"Now tracking {species.Name}. Your global detection range for every tracked species is {SpeciesTrackerManager.GetRange(user):0} m.", NotificationStyle.Chat);
             else
                 user.Player.ErrorLoc($"You are already tracking {species.Name}.");
         }
@@ -84,7 +84,7 @@ namespace SpeciesTracker
         }
 
         [ChatSubCommand(nameof(TrackSpecies), "range", ChatAuthorizationLevel.User)]
-        public static void Range(User user, string speciesName, float meters)
+        public static void Range(User user, float meters)
         {
             if (meters < SpeciesTrackerManager.MinRange || meters > SpeciesTrackerManager.MaxRange)
             {
@@ -92,16 +92,10 @@ namespace SpeciesTracker
                 return;
             }
 
-            if (!SpeciesTrackerManager.IsTracking(user, speciesName))
-            {
-                user.Player.ErrorLoc($"'{speciesName}' is not in your tracked list. Add it first with /trackspecies add <species>.");
-                return;
-            }
-
-            if (SpeciesTrackerManager.SetRange(user, speciesName, meters))
-                user.Player.MsgLoc($"Detection range for {speciesName.Trim()} set to {meters:0} m.", NotificationStyle.Chat);
+            if (SpeciesTrackerManager.SetRange(user, meters))
+                user.Player.MsgLoc($"Your global detection range for every tracked species set to {meters:0} m.", NotificationStyle.Chat);
             else
-                user.Player.ErrorLoc($"Could not update the range. Please provide a valid species name.");
+                user.Player.ErrorLoc($"Could not update the range. Please provide a value between {SpeciesTrackerManager.MinRange:0} and {SpeciesTrackerManager.MaxRange:0} meters.");
         }
 
         [ChatSubCommand(nameof(TrackSpecies), "list", ChatAuthorizationLevel.User)]
@@ -118,8 +112,9 @@ namespace SpeciesTracker
             sb.AppendLine(Localizer.DoStr("Tracked species:"));
             foreach (var name in names)
             {
-                sb.AppendLineLoc($" - {name}: {SpeciesTrackerManager.GetRange(user, name):0} m");
+                sb.AppendLineLoc($" - {name}");
             }
+            sb.AppendLineLoc($"Global detection range: {SpeciesTrackerManager.GetRange(user):0} m (applies to every tracked species).");
             user.Player.MsgLoc($"{sb.ToStringLoc()}", NotificationStyle.Chat);
         }
 
