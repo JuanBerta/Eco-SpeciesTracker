@@ -13,7 +13,7 @@ namespace SpeciesTracker
     /// </summary>
     public static class SpeciesTrackerManager
     {
-        public const float DefaultRange = 50f;
+        public const float DefaultRange = 150f;
         public const float MinRange = 1f;
         public const float MaxRange = 500f;
 

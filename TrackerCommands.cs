@@ -18,7 +18,7 @@ namespace SpeciesTracker
     [ChatCommandHandler]
     public static class TrackerCommands
     {
-        [ChatCommand("Track animals and plants: see every instance of a tracked species as a personal map marker on the M-key map and minimap within a configurable range.", "trackspecies")]
+        [ChatCommand("Track animals and plants: see every instance of a tracked species as a personal map marker on the M-key map and minimap within a configurable range.", "track")]
         public static void TrackSpecies() { }
 
         [ChatSubCommand(nameof(TrackSpecies), "help", ChatAuthorizationLevel.User)]
