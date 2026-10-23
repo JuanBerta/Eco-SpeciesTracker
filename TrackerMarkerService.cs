@@ -144,6 +144,8 @@ namespace SpeciesTracker
                     marker.SetMaxDistanceToShow(player, range);
 
                     // Icons come from the client's built-in icon library; IconNameOverride is read-only.
+                    // Add() already placed the marker into this user's personal Markers list
+                    // (WorldMarkerManager.Add -> List.Add), so MakeMarkerPersonal is not needed.
                     //WorldMarkerUtils.MakeMarkerPersonal(user, marker);
 
                     perUser[key] = marker;

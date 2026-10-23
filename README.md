@@ -5,7 +5,12 @@ Track **animals and plants** in Eco. Every instance of a tracked species inside 
 - **Author:** Beinded (JuanBerta)
 - **GitHub:** https://github.com/JuanBerta/SpeciesTracker
 - **Game version:** Eco 0.14.2.1
-- **Mod version:** 0.1.1
+- **Mod version:** 0.1.2
+
+## Changelog
+
+- **0.1.2** — Fix map markers never rendering: `IThreadedPlugin.Run()` is invoked exactly once on a dedicated background thread by PluginManager, so the plugin now keeps the marker refresh loop alive for the whole server lifetime (previously the refresh pass only ran once at startup, before any species was tracked, and no WorldMarker was ever created).
+- **0.1.1** — Rename the chat command from `/track` to `/trackspecies` to avoid a server startup conflict with another mod's command.
 
 ## Features
 
