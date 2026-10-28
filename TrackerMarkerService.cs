@@ -5,6 +5,7 @@ using Eco.Shared.Math;
 using Eco.Shared.Utils;
 using Eco.Shared.Voxel;
 using Eco.Simulation;
+using Eco.Simulation.Agents;
 using Eco.Simulation.Animals;
 using System;
 using System.Collections.Generic;
@@ -22,13 +23,22 @@ namespace SpeciesTracker
     ///    cost scales with the population INSIDE the range instead of the whole map. The old
     ///    EcoSim.PlantSim.All scan made 150-500m ranges freeze: every 0.5s tick walked tens of
     ///    thousands of plants for every online user.
-    ///  - Animals have no public spatial index (AnimalsManager exposes only the full
-    ///    ThreadSafeList), so they are still scanned globally, but with squared-distance tests
-    ///    (World.WrappedDistanceSq) and a single per-user range lookup instead of per-animal.
     ///  - Marker positions are cached: static plants (and stationary animals) no longer emit a
     ///    SetPos network call every tick.
     ///  - Defensive caps (MaxMarkersPerUser / MaxNewMarkersPerTick) flatten marker-creation
     ///    storms at large ranges, which prevents server/client hitches.
+    ///
+    /// Performance notes (0.3.0, animal scan):
+    ///  - Animals previously had no spatial index (AnimalsManager exposes only the full
+    ///    ThreadSafeList), so every 0.5s tick scanned ALL animals for EVERY online user. With a
+    ///    500m tracking range and a large map that froze the server for seconds and made the
+    ///    clear command unreachable. A lightweight uniform-grid cache (SpatialHashGrid) is now
+    ///    rebuilt every few ticks and shared by all users, so each tick only visits animals
+    ///    whose cells intersect the query circle; a WrappedDistanceSq pass keeps the exact
+    ///    range filter. Cell bucketing is wrap-aware via World.WrappedVoxelSize.
+    ///  - Animal markers are only repositioned once the animal has actually moved at least
+    ///    AnimalMoveUpdateThresholdMeters (float-precision check), cutting per-tick SetPos
+    ///    network calls for moving herds inside large ranges.
     ///
     /// Lessons from HunterTracking 0.1.7 - 0.1.8:
     ///  - A freshly created marker is INVISIBLE until SetVisiblity(WorldMarkerVisibility.ShowInTheWorldAndMinimap)
@@ -45,11 +55,21 @@ namespace SpeciesTracker
         private const double TickIntervalSeconds = 0.5;
         private static DateTime lastTick = DateTime.MinValue;
 
+        // Animal spatial cache. Cell side in world units; grid rebuilt every few ticks because
+        // animals move. Rebuild cost is one full-list pass, then all users query only cells
+        // inside their range for the rest of the interval. Cell bucketing wraps around the
+        // world edges (via World.WrappedVoxelSize) to match Eco's wrapped world.
+        private const float AnimalCellSize = 100f;
+        private const int AnimalGridRebuildEveryTicks = 10; // 10 ticks * 0.5s = 5s
+        private static SpatialHashGrid<Animal>? animalGrid; // null until the first rebuild
+        private static int tickCounter;
+
         // user.Id -> (marker key -> marker + last known voxel position)
         private sealed class MarkerEntry
         {
             public WorldMarker Marker = null!;
             public Vector3i LastPos;
+            public Vector3 LastAnimalPos; // float precision, for the animal move-threshold check
         }
 
         private static readonly Dictionary<int, Dictionary<string, MarkerEntry>> ActiveMarkers = new Dictionary<int, Dictionary<string, MarkerEntry>>();
@@ -67,6 +87,11 @@ namespace SpeciesTracker
             if ((now - lastTick).TotalSeconds < TickIntervalSeconds)
                 return;
             lastTick = now;
+
+            // Rebuild the shared animal grid before scanning users; one full-list pass every few
+            // ticks is amortized across all online users (previously every user scanned the whole
+            // list on every tick).
+            EnsureAnimalGrid();
 
             foreach (var user in UserManager.Users)
             {
@@ -92,9 +117,11 @@ namespace SpeciesTracker
                 var toKeep = new HashSet<string>();
                 var createdThisTick = 0;
 
-                // Animals (land + aquatic): no public spatial index, scan the full list.
-                // The wanted-set check + squared distance keep each iteration extremely cheap.
-                foreach (var animal in AnimalsManager.Obj.Animals)
+                // Animals (land + aquatic): query the shared spatial grid instead of scanning
+                // AnimalsManager.Obj.Animals for every user on every tick. The grid prunes to
+                // animals whose cells intersect the range circle; the wanted-set check and a
+                // wrapped squared-distance pass keep the exact filter.
+                foreach (var animal in animalGrid!.Query(playerPos, range))
                 {
                     if (animal == null || !animal.Active || animal.Dead || animal.Species == null)
                         continue;
@@ -105,7 +132,8 @@ namespace SpeciesTracker
 
                     var key = TrackerPerf.AnimalKey(animal.ID);
                     toKeep.Add(key);
-                    UpdateMarker(user, key, animal.GroundPosition, animal.Species.Name, range, ref createdThisTick);
+                    UpdateMarker(user, key, animal.GroundPosition, animal.Species.Name, range, ref createdThisTick,
+                        moveThresholdSq: TrackerPerf.AnimalMoveUpdateThresholdMeters * TrackerPerf.AnimalMoveUpdateThresholdMeters);
                 }
 
                 // Plants (including trees): spatial index lookup. Only the in-range population is
@@ -120,6 +148,34 @@ namespace SpeciesTracker
 
                 RemoveStale(user, toKeep);
             }
+        }
+
+        /// <summary>
+        /// Rebuilds the shared animal spatial grid. Runs once at startup, then every
+        /// <see cref="AnimalGridRebuildEveryTicks"/> ticks so animal movement is accounted for
+        /// without paying a full-list pass on every tick. The grid is rebuilt from scratch on
+        /// each interval (animals move), and its wrap dimensions are derived from the current
+        /// wrapped world size.
+        /// </summary>
+        private static void EnsureAnimalGrid()
+        {
+            if (animalGrid != null && (++tickCounter % AnimalGridRebuildEveryTicks) != 0)
+                return;
+
+            // Cell count from the wrapped world size (X/Z). Zero/negative -> non-wrapping grid
+            // (safe fallback before the world is initialized).
+            var size = World.WrappedVoxelSize;
+            int cellsX = size.X > 0 ? Math.Max(1, (int)(size.X / AnimalCellSize)) : 0;
+            int cellsZ = size.Z > 0 ? Math.Max(1, (int)(size.Z / AnimalCellSize)) : 0;
+
+            var grid = new SpatialHashGrid<Animal>(AnimalCellSize, cellsX, cellsZ);
+            foreach (var animal in AnimalsManager.Obj.Animals)
+            {
+                if (animal == null || !animal.Active || animal.Dead)
+                    continue;
+                grid.Add(animal.Position, animal);
+            }
+            animalGrid = grid;
         }
 
         private static HashSet<string> GetWantedSet(int userId, UserConfig config)
@@ -139,7 +195,7 @@ namespace SpeciesTracker
             }
         }
 
-        private static void UpdateMarker(User user, string key, Vector3 position, string speciesName, float range, ref int createdThisTick)
+        private static void UpdateMarker(User user, string key, Vector3 position, string speciesName, float range, ref int createdThisTick, float moveThresholdSq = 0f)
         {
             var player = user.Player;
             if (player == null || user.Markers == null)
@@ -158,12 +214,22 @@ namespace SpeciesTracker
                 {
                     // Only push a network update when the marker actually moved. Plants are static,
                     // so this skips the vast majority of per-tick SetPos calls at large ranges.
-                    if (entry.LastPos != posi)
+                    // Animals use a float-precision threshold (moveThresholdSq &gt; 0): a marker is
+                    // only repositioned once the animal has travelled far enough, which for slow
+                    // herds inside a 500m range removes almost all per-tick SetPos traffic.
+                    bool shouldMove;
+                    if (moveThresholdSq > 0f)
+                        shouldMove = TrackerPerf.ShouldUpdateAnimalMarker(World.WrappedDistanceSq(position, entry.LastAnimalPos));
+                    else
+                        shouldMove = entry.LastPos != posi;
+
+                    if (shouldMove)
                     {
                         try
                         {
                             entry.Marker.SetPos(player, posi);
                             entry.LastPos = posi;
+                            entry.LastAnimalPos = position;
                         }
                         catch (Exception ex)
                         {
@@ -197,7 +263,7 @@ namespace SpeciesTracker
                     // (WorldMarkerManager.Add -> List.Add), so MakeMarkerPersonal is not needed.
                     //WorldMarkerUtils.MakeMarkerPersonal(user, marker);
 
-                    perUser[key] = new MarkerEntry { Marker = marker, LastPos = posi };
+                    perUser[key] = new MarkerEntry { Marker = marker, LastPos = posi, LastAnimalPos = position };
                     createdThisTick++;
                 }
                 catch (Exception ex)

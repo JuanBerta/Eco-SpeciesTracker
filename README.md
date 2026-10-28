@@ -5,10 +5,12 @@ Track **animals and plants** in Eco. Every instance of a tracked species inside 
 - **Author:** Beinded (JuanBerta)
 - **GitHub:** https://github.com/JuanBerta/SpeciesTracker
 - **Game version:** Eco 0.14.2.1
-- **Mod version:** 0.1.3
+- **Mod version:** 0.3.0
 
 ## Changelog
 
+- **0.3.0** — Animal scan performance: animals now go through a shared wrap-aware uniform-grid spatial index (`SpatialHashGrid`) rebuilt every 5 s, so each 0.5 s tick only visits animals whose cells intersect your range instead of scanning the whole `AnimalsManager` list per user. Animal markers are only repositioned once the animal has actually moved ≥ 2 m (was: every tick). Together this removes the multi-second freezes seen at 500 m ranges tracking herds (e.g. Deer), and makes `/trackspecies clear` responsive again.
+- **0.2.0** — Plant scan performance: plants now use `PlantSim.PlantsWithinRange` (spatial index) instead of walking the full plant list; squared-distance range checks, marker position caching (static entities stop pushing per-tick network updates), creation caps (400 markers/user, 60 new/tick), pure logic extracted into `TrackerPerf.cs` with a unit-test project. Custom range switched to a float with -1 sentinel.
 - **0.1.3** — Detection range is now user-global: one per-player range applies to every tracked species at once (`/trackspecies range <meters>`), replacing the old per-species ranges. Saves from 0.1.2 (per-species ranges) are superseded by the new global range (default 50 m).
 - **0.1.2** — Fix map markers never rendering: `IThreadedPlugin.Run()` is invoked exactly once on a dedicated background thread by PluginManager, so the plugin now keeps the marker refresh loop alive for the whole server lifetime (previously the refresh pass only ran once at startup, before any species was tracked, and no WorldMarker was ever created).
 - **0.1.1** — Rename the chat command from `/track` to `/trackspecies` to avoid a server startup conflict with another mod's command.

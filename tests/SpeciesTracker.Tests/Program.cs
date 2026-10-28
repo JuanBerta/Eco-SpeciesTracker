@@ -65,6 +65,60 @@ var tests = new (string name, Action run)[]
             Assert(actual == expected, $"mismatch at distance {d}: expected {expected}, got {actual}");
         }
     }),
+
+    ("Animal move threshold only triggers after real movement", () =>
+    {
+        Assert(!TrackerPerf.ShouldUpdateAnimalMarker(0f), "zero distance -> no update");
+        Assert(!TrackerPerf.ShouldUpdateAnimalMarker(1.9f * 1.9f), "just under 2m -> no update");
+        Assert(!TrackerPerf.ShouldUpdateAnimalMarker(2f * 2f), "exactly 2m -> no update (strict >)");
+        Assert(TrackerPerf.ShouldUpdateAnimalMarker(2.01f * 2.01f), "just over 2m -> update");
+        Assert(TrackerPerf.ShouldUpdateAnimalMarker(50f * 50f), "50m jump -> update");
+    }),
+
+    ("SpatialHashGrid returns only animals in queried cells", () =>
+    {
+        var grid = new SpatialHashGrid<string>(100f); // 100-unit cells, no wrap
+        grid.Add(new Vector3(10f, 0f, 10f), "near");
+        grid.Add(new Vector3(250f, 0f, 10f), "mid-cell");
+        grid.Add(new Vector3(510f, 0f, 510f), "far-cell");
+        grid.Add(new Vector3(1010f, 0f, -1010f), "diagonal");
+
+        var hits = new List<string>(grid.Query(new Vector3(0f, 0f, 0f), 250f));
+        Assert(hits.Contains("near"), "near must be found");
+        Assert(hits.Contains("mid-cell"), "cell edge (250) must be found when span includes it");
+        Assert(!hits.Contains("far-cell"), "510 units away must NOT be in a 250 range query");
+        Assert(!hits.Contains("diagonal"), "diagonal beyond range must NOT be found");
+    }),
+
+    ("SpatialHashGrid wraps cells at world edges", () =>
+    {
+        // 4x4 grid of 100-unit cells -> world spans [0, 400) on both axes.
+        var grid = new SpatialHashGrid<string>(100f, cellsX: 4, cellsZ: 4);
+        grid.Add(new Vector3(10f, 0f, 10f), "corner-near");
+        grid.Add(new Vector3(390f, 0f, 390f), "corner-far"); // wraps to cell (-1,-1) == (3,3)
+
+        var hits = new List<string>(grid.Query(new Vector3(390f, 0f, 390f), 100f));
+        Assert(hits.Contains("corner-far"), "far corner animal must be found near its own location");
+        // In a wrapped world (10,10) is only 20 units away across the edge, so it MUST appear as
+        // a candidate; the exact wrapped-distance filter is the caller's responsibility.
+        Assert(hits.Contains("corner-near"), "wrapped world: cross-edge neighbor must be a candidate");
+
+        // Cross-edge query: center near right edge, radius reaches the wrapped left side.
+        var cross = new List<string>(grid.Query(new Vector3(390f, 0f, 10f), 30f));
+        Assert(cross.Contains("corner-far"), "wrapped neighbor on the far side must be found across the edge (span 1 covers it)");
+    }),
+
+    ("SpatialHashGrid negative coordinates bucket correctly", () =>
+    {
+        var grid = new SpatialHashGrid<string>(100f);
+        grid.Add(new Vector3(-5f, 0f, -5f), "negative");
+        var hits = new List<string>(grid.Query(new Vector3(-5f, 0f, -5f), 10f));
+        Assert(hits.Count == 1 && hits[0] == "negative", "negative-coordinate animal must be found at its own cell");
+        // Cells are coarse (100u), so a 10u query still scans the surrounding ring (conservative
+        // pruning); something in a non-visited cell must NOT appear.
+        var miss = new List<string>(grid.Query(new Vector3(-205f, 0f, -5f), 10f));
+        Assert(miss.Count == 0, "animal 200 units away in a non-visited cell must not appear");
+    }),
 };
 
 var failures = 0;

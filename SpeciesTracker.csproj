@@ -8,11 +8,12 @@
     <!-- The tests/ tree hosts the standalone SpeciesTracker.Tests project; keep its sources
          (incl. generated AssemblyInfo under tests/**/obj) out of the mod assembly. -->
     <DefaultItemExcludes>$(DefaultItemExcludes);tests\**</DefaultItemExcludes>
-    <!-- 0.2.0: performance overhaul - spatial-index plant queries, squared distances,
-         marker position caching, marker creation caps for 150-500m ranges. -->
-    <Version>0.2.0</Version>
-    <AssemblyVersion>0.2.0.0</AssemblyVersion>
-    <FileVersion>0.2.0.0</FileVersion>
+    <!-- 0.3.0: animal scan performance - shared SpatialHashGrid over AnimalsManager (wrap-aware,
+         rebuilt every 5s), animal marker move threshold (2m), so 500m tracking no longer scans
+         the whole animal list per user per tick. -->
+    <Version>0.3.0</Version>
+    <AssemblyVersion>0.3.0.0</AssemblyVersion>
+    <FileVersion>0.3.0.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
