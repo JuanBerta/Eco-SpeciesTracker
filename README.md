@@ -3,7 +3,7 @@
 Track **animals and plants** in Eco. Every instance of a tracked species inside your **global detection range** shows a **temporary personal marker** on the M-key world map and the minimap. Markers follow moving animals, refresh every 0.5 s, and disappear when the entity dies, leaves the range, or tracking is stopped.
 
 - **Author:** Beinded (JuanBerta)
-- **GitHub:** https://github.com/JuanBerta/SpeciesTracker
+- **GitHub:** https://github.com/JuanBerta/Eco-SpeciesTracker.git
 - **Game version:** Eco 0.14.2.1
 - **Mod version:** 0.3.0
 
