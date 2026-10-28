@@ -69,8 +69,8 @@ namespace SpeciesTracker
         public static float GetRange(User user)
         {
             var config = GetConfig(user);
-            if (config.CustomRange is float range)
-                return Math.Clamp(range, MinRange, MaxRange);
+            if (config.CustomRange >= 0f)
+                return Math.Clamp(config.CustomRange, MinRange, MaxRange);
             return DefaultRange;
         }
 

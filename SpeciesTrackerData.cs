@@ -23,7 +23,8 @@ namespace SpeciesTracker
         [Serialized] public ThreadSafeList<string> TrackedSpecies { get; set; } = new();
 
         // Single user-level detection range in meters applied to every tracked species.
-        // null means "use the default range" (SpeciesTrackerManager.DefaultRange).
-        [Serialized] public float? CustomRange { get; set; }
+        // -1 means "use the default range" (SpeciesTrackerManager.DefaultRange).
+        // NOTE: Eco's SimpleSerializer has no serializer for Nullable<float>, so a plain float with -1 sentinel is used.
+        [Serialized] public float CustomRange { get; set; } = -1f;
     }
 }

@@ -17,6 +17,19 @@ namespace SpeciesTracker
     /// Maintains temporary dynamic world map markers (visible on the M-key map and the
     /// minimap) for every instance of a tracked species inside the player's detection range.
     ///
+    /// Performance notes (0.2.0):
+    ///  - Plants are enumerated through PlantSim.PlantsWithinRange (spatial index), so the
+    ///    cost scales with the population INSIDE the range instead of the whole map. The old
+    ///    EcoSim.PlantSim.All scan made 150-500m ranges freeze: every 0.5s tick walked tens of
+    ///    thousands of plants for every online user.
+    ///  - Animals have no public spatial index (AnimalsManager exposes only the full
+    ///    ThreadSafeList), so they are still scanned globally, but with squared-distance tests
+    ///    (World.WrappedDistanceSq) and a single per-user range lookup instead of per-animal.
+    ///  - Marker positions are cached: static plants (and stationary animals) no longer emit a
+    ///    SetPos network call every tick.
+    ///  - Defensive caps (MaxMarkersPerUser / MaxNewMarkersPerTick) flatten marker-creation
+    ///    storms at large ranges, which prevents server/client hitches.
+    ///
     /// Lessons from HunterTracking 0.1.7 - 0.1.8:
     ///  - A freshly created marker is INVISIBLE until SetVisiblity(WorldMarkerVisibility.ShowInTheWorldAndMinimap)
     ///    is called, otherwise the client never registers it for rendering.
@@ -32,9 +45,21 @@ namespace SpeciesTracker
         private const double TickIntervalSeconds = 0.5;
         private static DateTime lastTick = DateTime.MinValue;
 
-        // user.Id -> (marker key -> marker)
-        private static readonly Dictionary<int, Dictionary<string, WorldMarker>> ActiveMarkers = new Dictionary<int, Dictionary<string, WorldMarker>>();
+        // user.Id -> (marker key -> marker + last known voxel position)
+        private sealed class MarkerEntry
+        {
+            public WorldMarker Marker = null!;
+            public Vector3i LastPos;
+        }
+
+        private static readonly Dictionary<int, Dictionary<string, MarkerEntry>> ActiveMarkers = new Dictionary<int, Dictionary<string, MarkerEntry>>();
         private static readonly object MarkersLock = new object();
+
+        // Per-user "tracked species" hash-set cache. Rebuilt only when the fingerprint of the
+        // tracked-species list changes, instead of every tick.
+        private static readonly Dictionary<int, HashSet<string>> WantedCache = new Dictionary<int, HashSet<string>>();
+        private static readonly Dictionary<int, ulong> WantedFingerprints = new Dictionary<int, ulong>();
+        private static readonly object CacheLock = new object();
 
         public static void Tick()
         {
@@ -48,61 +73,73 @@ namespace SpeciesTracker
                 if (user == null || !user.IsActive || user.Markers == null || user.Player == null)
                     continue;
 
-                if (!SpeciesTrackerData.Obj.UserConfiguration.TryGetValue(user.Id, out var config))
-                {
-                    ClearUser(user);
-                    continue;
-                }
-                if (config.TrackedSpecies.Count == 0)
+                if (!SpeciesTrackerData.Obj.UserConfiguration.TryGetValue(user.Id, out var config) || config.TrackedSpecies.Count == 0)
                 {
                     ClearUser(user);
                     continue;
                 }
 
-                var wanted = new HashSet<string>(config.TrackedSpecies, StringComparer.OrdinalIgnoreCase);
+                var wanted = GetWantedSet(user.Id, config);
+                if (wanted.Count == 0)
+                {
+                    ClearUser(user);
+                    continue;
+                }
+
                 var playerPos = user.Position;
+                var range = SpeciesTrackerManager.GetRange(user); // one lookup per user per tick
+                var rangeSq = range * range;
                 var toKeep = new HashSet<string>();
+                var createdThisTick = 0;
 
-                // Animals (land + aquatic), strongly typed via AnimalsManager.
+                // Animals (land + aquatic): no public spatial index, scan the full list.
+                // The wanted-set check + squared distance keep each iteration extremely cheap.
                 foreach (var animal in AnimalsManager.Obj.Animals)
                 {
                     if (animal == null || !animal.Active || animal.Dead || animal.Species == null)
                         continue;
                     if (!wanted.Contains(animal.Species.Name))
                         continue;
-
-                    var range = SpeciesTrackerManager.GetRange(user);
-                    if (World.WrappedDistance(animal.Position, playerPos) > range)
+                    if (World.WrappedDistanceSq(animal.Position, playerPos) > rangeSq)
                         continue;
 
-                    var key = "a" + animal.ID;
+                    var key = TrackerPerf.AnimalKey(animal.ID);
                     toKeep.Add(key);
-                    UpdateMarker(user, key, animal.GroundPosition, animal.Species.Name, range);
+                    UpdateMarker(user, key, animal.GroundPosition, animal.Species.Name, range, ref createdThisTick);
                 }
 
-                // Plants (including trees). Plant positions are static voxel positions; the
-                // marker follows the plant's own position.
-                foreach (var plant in EcoSim.PlantSim.All)
+                // Plants (including trees): spatial index lookup. Only the in-range population is
+                // visited; the species filter runs inside the query predicate.
+                foreach (var plant in EcoSim.PlantSim.PlantsWithinRange(playerPos, range,
+                             p => p != null && p.Species != null && !p.Dead && wanted.Contains(p.Species.Name)))
                 {
-                    if (plant == null || plant.Species == null || plant.Dead)
-                        continue;
-                    if (!wanted.Contains(plant.Species.Name))
-                        continue;
-
-                    var range = SpeciesTrackerManager.GetRange(user);
-                    if (World.WrappedDistance(plant.Position, playerPos) > range)
-                        continue;
-
-                    var key = "p" + plant.Position.X + "," + plant.Position.Y + "," + plant.Position.Z;
+                    var key = TrackerPerf.PlantKey(plant.Position);
                     toKeep.Add(key);
-                    UpdateMarker(user, key, plant.Position, plant.Species.Name, range);
+                    UpdateMarker(user, key, plant.Position, plant.Species.Name, range, ref createdThisTick);
                 }
 
                 RemoveStale(user, toKeep);
             }
         }
 
-        private static void UpdateMarker(User user, string key, Vector3 position, string speciesName, float range)
+        private static HashSet<string> GetWantedSet(int userId, UserConfig config)
+        {
+            // FNV-1a fingerprint of the tracked-species list; rebuild the hash set only when it changes.
+            var fingerprint = TrackerPerf.Fingerprint(config.TrackedSpecies);
+
+            lock (CacheLock)
+            {
+                if (WantedFingerprints.TryGetValue(userId, out var previous) && previous == fingerprint)
+                    return WantedCache[userId];
+
+                var set = new HashSet<string>(config.TrackedSpecies, StringComparer.OrdinalIgnoreCase);
+                WantedFingerprints[userId] = fingerprint;
+                WantedCache[userId] = set;
+                return set;
+            }
+        }
+
+        private static void UpdateMarker(User user, string key, Vector3 position, string speciesName, float range, ref int createdThisTick)
         {
             var player = user.Player;
             if (player == null || user.Markers == null)
@@ -113,22 +150,34 @@ namespace SpeciesTracker
             {
                 if (!ActiveMarkers.TryGetValue(user.Id, out var perUser))
                 {
-                    perUser = new Dictionary<string, WorldMarker>();
+                    perUser = new Dictionary<string, MarkerEntry>();
                     ActiveMarkers[user.Id] = perUser;
                 }
 
-                if (perUser.TryGetValue(key, out var existing))
+                if (perUser.TryGetValue(key, out var entry))
                 {
-                    try
+                    // Only push a network update when the marker actually moved. Plants are static,
+                    // so this skips the vast majority of per-tick SetPos calls at large ranges.
+                    if (entry.LastPos != posi)
                     {
-                        existing.SetPos(player, posi);
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Debug($"SpeciesTracker: failed to move marker {key}: {ex.Message}");
+                        try
+                        {
+                            entry.Marker.SetPos(player, posi);
+                            entry.LastPos = posi;
+                        }
+                        catch (Exception ex)
+                        {
+                            Log.Debug($"SpeciesTracker: failed to move marker {key}: {ex.Message}");
+                        }
                     }
                     return;
                 }
+
+                // Defensive caps: skip creation when at the per-user ceiling or over this tick's budget.
+                // In-range entities stay in toKeep, so they are not removed as stale and are retried
+                // on later ticks once budget/ceiling frees up.
+                if (!TrackerPerf.CanCreateMarker(perUser.Count, createdThisTick))
+                    return;
 
                 WorldMarker? marker = null;
                 try
@@ -148,7 +197,8 @@ namespace SpeciesTracker
                     // (WorldMarkerManager.Add -> List.Add), so MakeMarkerPersonal is not needed.
                     //WorldMarkerUtils.MakeMarkerPersonal(user, marker);
 
-                    perUser[key] = marker;
+                    perUser[key] = new MarkerEntry { Marker = marker, LastPos = posi };
+                    createdThisTick++;
                 }
                 catch (Exception ex)
                 {
@@ -163,7 +213,7 @@ namespace SpeciesTracker
 
         private static void RemoveStale(User user, HashSet<string> toKeep)
         {
-            Dictionary<string, WorldMarker>? perUser;
+            Dictionary<string, MarkerEntry>? perUser;
             lock (MarkersLock)
             {
                 if (!ActiveMarkers.TryGetValue(user.Id, out perUser) || perUser == null)
@@ -182,16 +232,16 @@ namespace SpeciesTracker
 
             foreach (var key in stale)
             {
-                WorldMarker? marker;
+                MarkerEntry? entry;
                 lock (MarkersLock)
                 {
-                    if (!perUser.TryGetValue(key, out marker) || marker == null)
+                    if (!perUser.TryGetValue(key, out entry) || entry == null)
                         continue;
                 }
 
                 try
                 {
-                    marker.Remove(player);
+                    entry.Marker.Remove(player);
                 }
                 catch (Exception ex)
                 {
@@ -210,7 +260,7 @@ namespace SpeciesTracker
         /// <summary>Removes every marker currently shown to a player (on untrack, clear, or disconnect).</summary>
         public static void ClearUser(User user)
         {
-            Dictionary<string, WorldMarker>? perUser;
+            Dictionary<string, MarkerEntry>? perUser;
             lock (MarkersLock)
             {
                 if (!ActiveMarkers.TryGetValue(user.Id, out perUser) || perUser == null)
@@ -218,15 +268,21 @@ namespace SpeciesTracker
                 ActiveMarkers.Remove(user.Id);
             }
 
+            lock (CacheLock)
+            {
+                WantedCache.Remove(user.Id);
+                WantedFingerprints.Remove(user.Id);
+            }
+
             var player = user.Player;
             if (player == null)
                 return;
 
-            foreach (var marker in perUser.Values)
+            foreach (var entry in perUser.Values)
             {
                 try
                 {
-                    marker.Remove(player);
+                    entry.Marker.Remove(player);
                 }
                 catch (Exception ex)
                 {
